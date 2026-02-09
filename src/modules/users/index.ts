@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { db } from '../../config/db';
 import { users } from '../../db/schema';
-import { eq, ne } from 'drizzle-orm';
+import { eq, ne, ilike, and, sql } from 'drizzle-orm';
 import { authMiddleware } from '../../middleware/auth';
 
 // ══════════════════════════════════════
@@ -10,6 +10,52 @@ import { authMiddleware } from '../../middleware/auth';
 
 export const userRoutes = new Elysia({ prefix: '/users', tags: ['Users'] })
     .use(authMiddleware)
+    .get(
+        '/search',
+        async ({ query, user }) => {
+            const searchQuery = query.q?.trim();
+
+            if (!searchQuery || searchQuery.length < 1) {
+                return { users: [] };
+            }
+
+            const results = await db
+                .select({
+                    id: users.id,
+                    username: users.username,
+                    status: users.status,
+                    isBot: users.isBot,
+                    lastSeen: users.lastSeen,
+                })
+                .from(users)
+                .where(
+                    and(
+                        ilike(users.username, `%${searchQuery}%`),
+                        ne(users.id, user.id) // exclude self from results
+                    )
+                )
+                .limit(20);
+
+            return {
+                users: results.map((u) => ({
+                    id: u.id,
+                    username: u.username,
+                    status: u.status,
+                    isBot: u.isBot,
+                    lastSeen: u.lastSeen.toISOString(),
+                })),
+            };
+        },
+        {
+            query: t.Object({
+                q: t.Optional(t.String()),
+            }),
+            detail: {
+                summary: 'Search users by username',
+                description: 'Search for users by partial username match (case-insensitive)',
+            },
+        }
+    )
     .get(
         '/',
         async () => {
