@@ -8,12 +8,14 @@ import { userRoutes } from './modules/users';
 import { channelRoutes } from './modules/channels';
 import { messageRoutes } from './modules/messages';
 import { chatWebSocket } from './ws/chat';
+import openapi from '@elysiajs/openapi';
 
 const app = new Elysia()
   .use(cors({
     origin: true,
     credentials: true,
   }))
+  .use(openapi())
   .use(
     swagger({
       documentation: {
