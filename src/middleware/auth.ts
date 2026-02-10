@@ -46,7 +46,7 @@ export const authMiddleware = new Elysia({ name: 'auth-middleware' })
                 status: users.status,
             })
             .from(users)
-            .where(eq(users.id, payload.userId as number))
+            .where(eq(users.id, Number(payload.userId)))
             .limit(1);
 
         if (!user) {
