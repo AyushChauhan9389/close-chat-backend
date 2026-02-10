@@ -28,14 +28,14 @@ export const authMiddleware = new Elysia({ name: 'auth-middleware' })
         const auth = headers.authorization;
 
         if (!auth?.startsWith('Bearer ')) {
-            throw new Error('Unauthorized');
+            return status(401);
         }
 
         const token = auth.substring(7);
         const payload = await jwt.verify(token);
 
         if (!payload) {
-            throw new Error('Invalid token');
+            return status(401);
         }
 
         const [user] = await db
@@ -50,14 +50,8 @@ export const authMiddleware = new Elysia({ name: 'auth-middleware' })
             .limit(1);
 
         if (!user) {
-            throw new Error('User not found');
+            return status(401);
         }
 
         return { user };
-    })
-    .onError(({ error, status }) => {
-        const err = error as Error;
-        if (err.message === 'Unauthorized' || err.message === 'Invalid token' || err.message === 'User not found') {
-            return status(401, { error: err.message });
-        }
     });
