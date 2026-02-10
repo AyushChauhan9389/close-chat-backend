@@ -24,7 +24,7 @@ export const authMiddleware = new Elysia({ name: 'auth-middleware' })
             exp: '7d',
         })
     )
-    .derive(async ({ headers, jwt, status }) => {
+    .derive({ as: 'scoped' }, async ({ headers, jwt, status }) => {
         const auth = headers.authorization;
 
         if (!auth?.startsWith('Bearer ')) {
