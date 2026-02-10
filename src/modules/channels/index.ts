@@ -130,6 +130,15 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
     .post(
         '/',
         async ({ body, user, status }) => {
+            // Enforce DM constraints: max 1 additional member, use POST /api/dm/:userId instead
+            if (body.type === 'dm') {
+                if (body.members && body.members.length > 1) {
+                    return status(400, {
+                        error: 'DMs can only have 2 participants. Use POST /api/dm/:userId for DM creation.',
+                    });
+                }
+            }
+
             // Create channel with creator tracked
             const [newChannel] = await db
                 .insert(channels)
@@ -177,7 +186,7 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
             }),
             detail: {
                 summary: 'Create channel',
-                description: 'Create a new channel or DM. Creator becomes admin.',
+                description: 'Create a new channel or DM. Creator becomes admin. For DMs, prefer using POST /api/dm/:userId which handles deduplication.',
             },
         }
     )
@@ -305,8 +314,21 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
     )
     .post(
         '/:id/join',
-        async ({ params, user }) => {
+        async ({ params, user, status }) => {
             const channelId = Number(params.id);
+
+            // Block joining DM channels directly — use POST /api/dm/:userId instead
+            const [channel] = await db
+                .select({ type: channels.type })
+                .from(channels)
+                .where(eq(channels.id, channelId))
+                .limit(1);
+
+            if (channel?.type === 'dm') {
+                return status(403, {
+                    error: 'Cannot join a DM channel directly. Use POST /api/dm/:userId instead.',
+                });
+            }
 
             // Check if already a member
             const existing = await db
@@ -338,7 +360,7 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
             }),
             detail: {
                 summary: 'Join channel',
-                description: 'Join a channel by ID',
+                description: 'Join a channel by ID. Does not work for DM channels.',
             },
         }
     )
@@ -414,6 +436,19 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
         '/:id/members',
         async ({ params, body, user, status }) => {
             const channelId = Number(params.id);
+
+            // Block adding members to DM channels
+            const [channel] = await db
+                .select({ type: channels.type })
+                .from(channels)
+                .where(eq(channels.id, channelId))
+                .limit(1);
+
+            if (channel?.type === 'dm') {
+                return status(403, {
+                    error: 'Cannot add members to a DM channel. DMs are limited to 2 participants.',
+                });
+            }
 
             // Check if the requesting user is an admin of this channel
             const isAdmin = await isChannelAdmin(channelId, user.id);

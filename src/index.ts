@@ -6,6 +6,7 @@ import { swagger } from '@elysiajs/swagger';
 import { authRoutes } from './modules/auth';
 import { userRoutes } from './modules/users';
 import { channelRoutes } from './modules/channels';
+import { dmRoutes } from './modules/dm';
 import { messageRoutes } from './modules/messages';
 import { chatWebSocket } from './ws/chat';
 import { logger } from './middleware/logger';
@@ -30,6 +31,7 @@ const app = new Elysia()
           { name: 'Auth', description: 'Authentication endpoints' },
           { name: 'Users', description: 'User management' },
           { name: 'Channels', description: 'Channel management' },
+          { name: 'DM', description: 'Direct message management' },
           { name: 'Messages', description: 'Message management' },
         ],
       },
@@ -41,6 +43,7 @@ const app = new Elysia()
       .use(authRoutes)
       .use(userRoutes)
       .use(channelRoutes)
+      .use(dmRoutes)
       .use(messageRoutes)
   )
   .use(chatWebSocket)
