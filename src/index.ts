@@ -8,9 +8,11 @@ import { userRoutes } from './modules/users';
 import { channelRoutes } from './modules/channels';
 import { messageRoutes } from './modules/messages';
 import { chatWebSocket } from './ws/chat';
+import { logger } from './middleware/logger';
 import openapi from '@elysiajs/openapi';
 
 const app = new Elysia()
+  .use(logger)
   .use(cors({
     origin: true,
     credentials: true,
