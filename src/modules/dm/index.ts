@@ -181,7 +181,7 @@ export const dmRoutes = new Elysia({ prefix: '/dm', tags: ['DM'] })
                             status: users.status,
                         })
                         .from(channelMembers)
-                        .innerJoin(users, eq(channelMembers.userId, users.id))
+                        .leftJoin(users, eq(channelMembers.userId, users.id))
                         .where(
                             and(
                                 eq(channelMembers.channelId, dm.channelId),
@@ -229,13 +229,17 @@ export const dmRoutes = new Elysia({ prefix: '/dm', tags: ['DM'] })
                                 id: otherMember.id,
                                 username: otherMember.username,
                                 status: otherMember.status,
-                            }
-                            : null,
+                              }
+                            : {
+                                id: -1,
+                                username: 'Deleted Account',
+                                status: 'offline',
+                              },
                         lastMessage: lastMessage
                             ? {
                                 content: lastMessage.content || '',
                                 senderId: lastMessage.senderId,
-                                senderUsername: lastMessage.senderUsername || 'unknown',
+                                senderUsername: lastMessage.senderUsername || 'Deleted Account',
                                 createdAt: lastMessage.createdAt.toISOString(),
                             }
                             : null,

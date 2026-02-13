@@ -109,7 +109,7 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
                             ? {
                                 content: lastMessage.content || '',
                                 senderId: lastMessage.senderId,
-                                senderUsername: lastMessage.senderUsername || 'unknown',
+                                senderUsername: lastMessage.senderUsername || 'Deleted Account',
                                 createdAt: lastMessage.createdAt.toISOString(),
                             }
                             : null,

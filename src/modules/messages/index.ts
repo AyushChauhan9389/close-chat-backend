@@ -45,7 +45,7 @@ export const messageRoutes = new Elysia({ prefix: '/channels', tags: ['Messages'
                     id: m.id,
                     channelId: m.channelId,
                     senderId: m.senderId,
-                    senderUsername: m.senderUsername || 'unknown',
+                    senderUsername: m.senderUsername || 'Deleted Account',
                     content: m.content,
                     type: m.type,
                     imageUrl: m.imageUrl,
