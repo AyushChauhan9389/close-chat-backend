@@ -12,7 +12,7 @@ import { messageRoutes } from './modules/messages';
 import { chatWebSocket } from './ws/chat';
 import { logger } from './middleware/logger';
 import openapi from '@elysiajs/openapi';
-import { getLoginPage, getSignupPage, getForgotPasswordPage, getResetPasswordPage } from './pages/auth';
+import { getForgotPasswordPage, getResetPasswordPage } from './pages/auth';
 
 const app = new Elysia()
   .use(logger)
@@ -48,8 +48,12 @@ const app = new Elysia()
   )
   .get('/', () => ({ message: 'bitchat API v1.0.0', status: 'ok' }))
   // Auth pages (password reset only)
-  .get('/forgot-password', () => getForgotPasswordPage())
-  .get('/reset-password', ({ query }) => getResetPasswordPage(query.token as string | null))
+  .get('/forgot-password', () => new Response(getForgotPasswordPage(), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  }))
+  .get('/reset-password', ({ query }) => new Response(getResetPasswordPage(query.token as string | null), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  }))
   .group('/api', (app) =>
     app
       .use(authRoutes)
