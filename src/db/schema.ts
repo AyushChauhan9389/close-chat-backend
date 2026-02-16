@@ -86,8 +86,20 @@ export const messages = pgTable('messages', {
 }));
 
 // ══════════════════════════════════════
-// Relations
+// Password Reset Tokens Table
 // ══════════════════════════════════════
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    token: varchar('token', { length: 64 }).notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    passwordResetTokensUserIdx: index('password_reset_tokens_user_idx').on(table.userId),
+    passwordResetTokensTokenIdx: index('password_reset_tokens_token_idx').on(table.token),
+}));
+
+// Relations
 export const usersRelations = relations(users, ({ many }) => ({
     channelMemberships: many(channelMembers),
     messages: many(messages),

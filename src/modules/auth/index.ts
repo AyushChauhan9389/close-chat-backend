@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
 import { config } from '../../config/env';
 import { AuthService } from './service';
@@ -108,6 +108,62 @@ export const authRoutes = new Elysia({ prefix: '/auth', tags: ['Auth'] })
             detail: {
                 summary: 'Verify token',
                 description: 'Verifies JWT token and returns user data',
+            },
+        }
+    )
+    .post(
+        '/forgot-password',
+        async ({ body, status }) => {
+            const { email } = body as { email?: string };
+
+            if (!email || !email.includes('@')) {
+                return status(400, { error: 'Valid email is required' });
+            }
+
+            const result = await AuthService.requestPasswordReset(email);
+
+            // Always return success to prevent email enumeration
+            return result;
+        },
+        {
+            body: t.Object({
+                email: t.String({ format: 'email' }),
+            }),
+            detail: {
+                summary: 'Request password reset',
+                description: 'Sends a password reset link to the provided email',
+            },
+        }
+    )
+    .post(
+        '/reset-password',
+        async ({ body, status }) => {
+            const { token, password } = body as { token?: string; password?: string };
+
+            if (!token) {
+                return status(400, { error: 'Token is required' });
+            }
+
+            if (!password || password.length < 6) {
+                return status(400, { error: 'Password must be at least 6 characters' });
+            }
+
+            const result = await AuthService.resetPassword(token, password);
+
+            if ('error' in result) {
+                return status(400, result);
+            }
+
+            return result;
+        },
+        {
+            body: t.Object({
+                token: t.String(),
+                password: t.String({ minLength: 6 }),
+            }),
+            detail: {
+                summary: 'Reset password',
+                description: 'Resets password using the token sent to email',
             },
         }
     );
