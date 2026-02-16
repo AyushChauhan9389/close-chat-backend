@@ -149,7 +149,9 @@ export class AuthService {
         }
 
         // Generate secure random token
-        const token = crypto.randomBytes(32).toString('hex');
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        const token = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
         // Delete any existing tokens for this user
