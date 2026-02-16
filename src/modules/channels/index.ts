@@ -59,64 +59,71 @@ export const channelRoutes = new Elysia({ prefix: '/channels', tags: ['Channels'
                 return { channels: [] };
             }
 
-            // Get channel details with last message
-            const channelList = await Promise.all(
-                channelIds.map(async (channelId) => {
-                    const [channel] = await db
-                        .select()
-                        .from(channels)
-                        .where(eq(channels.id, channelId))
-                        .limit(1);
+            // Batch query: Get all channel details in one query
+            const channelDetails = await db
+                .select()
+                .from(channels)
+                .where(sql`${channels.id} IN (${sql.join(channelIds.map(id => sql`${id}`), sql`, `)})`);
 
-                    // Get last message
-                    const [lastMessage] = await db
-                        .select({
-                            id: messages.id,
-                            content: messages.content,
-                            senderId: messages.senderId,
-                            senderUsername: users.username,
-                            createdAt: messages.createdAt,
-                        })
-                        .from(messages)
-                        .leftJoin(users, eq(messages.senderId, users.id))
-                        .where(eq(messages.channelId, channelId))
-                        .orderBy(desc(messages.createdAt))
-                        .limit(1);
+            // Batch query: Get last message for all channels in one query
+            // Use DISTINCT ON to get only the latest message per channel
+            const lastMessagesRaw = await db.execute(sql`
+                SELECT m.id, m.channel_id, m.content, m.sender_id, m.created_at, u.username
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE m.channel_id IN (${sql.join(channelIds.map(id => sql`${id}`), sql`, `)})
+                AND m.id = (
+                    SELECT MAX(m2.id)
+                    FROM messages m2
+                    WHERE m2.channel_id = m.channel_id
+                )
+            `);
 
-                    // Get unread count
-                    const memberInfo = memberChannels.find((m) => m.channelId === channelId);
-                    let unreadCount = 0;
+            // Convert to map for easy lookup
+            const lastMessagesMap = new Map<number, any>();
+            for (const row of lastMessagesRaw as any[]) {
+                lastMessagesMap.set(row.channel_id, row);
+            }
 
-                    if (memberInfo?.lastReadMessageId) {
-                        const unreadResult = await db
-                            .select({ count: sql<number>`count(*)` })
-                            .from(messages)
-                            .where(
-                                and(
-                                    eq(messages.channelId, channelId),
-                                    sql`${messages.id} > ${memberInfo.lastReadMessageId}`
-                                )
-                            );
-                        unreadCount = Number(unreadResult[0]?.count || 0);
-                    }
+            // Batch query: Get unread counts for all channels in one query
+            const unreadCountsRaw = await db.execute(sql`
+                SELECT cm.channel_id, COUNT(m.id) as count
+                FROM channel_members cm
+                LEFT JOIN messages m ON m.channel_id = cm.channel_id AND m.id > COALESCE(cm.last_read_message_id, 0)
+                WHERE cm.user_id = ${user.id}
+                AND cm.channel_id IN (${sql.join(channelIds.map(id => sql`${id}`), sql`, `)})
+                GROUP BY cm.channel_id
+            `);
 
-                    return {
-                        id: channel.id,
-                        name: channel.name,
-                        type: channel.type,
-                        role: memberInfo?.role || 'member',
-                        lastMessage: lastMessage
-                            ? {
-                                content: lastMessage.content || '',
-                                senderId: lastMessage.senderId,
-                                senderUsername: lastMessage.senderUsername || 'Deleted Account',
-                                createdAt: lastMessage.createdAt.toISOString(),
-                            }
-                            : null,
-                        unreadCount,
-                    };
-                })
-            );
+            // Convert to map for easy lookup
+            const unreadCountsMap = new Map<number, number>();
+            for (const row of unreadCountsRaw as any[]) {
+                unreadCountsMap.set(row.channel_id, parseInt(row.count) || 0);
+            }
+
+            // Build channel list
+            const channelList = channelDetails.map((channel) => {
+                const memberInfo = memberChannels.find((m) => m.channelId === channel.id);
+                const lastMessage = lastMessagesMap.get(channel.id);
+
+                return {
+                    id: channel.id,
+                    name: channel.name,
+                    type: channel.type,
+                    role: memberInfo?.role || 'member',
+                    lastMessage: lastMessage
+                        ? {
+                            content: lastMessage.content || '',
+                            senderId: lastMessage.sender_id,
+                            senderUsername: lastMessage.username || 'Deleted Account',
+                            createdAt: lastMessage.created_at instanceof Date 
+                                ? lastMessage.created_at.toISOString() 
+                                : String(lastMessage.created_at),
+                          }
+                        : null,
+                    unreadCount: unreadCountsMap.get(channel.id) || 0,
+                };
+            });
 
             return { channels: channelList };
         },

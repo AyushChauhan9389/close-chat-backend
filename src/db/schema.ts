@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, integer, boolean, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // ══════════════════════════════════════
@@ -14,7 +14,10 @@ export const users = pgTable('users', {
     lastSeen: timestamp('last_seen').defaultNow().notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    usersStatusIdx: index('users_status_idx').on(table.status),
+    usersLastSeenIdx: index('users_last_seen_idx').on(table.lastSeen),
+}));
 
 // ══════════════════════════════════════
 // Channels Table
@@ -25,7 +28,10 @@ export const channels = pgTable('channels', {
     type: varchar('type', { length: 10 }).notNull(), // channel, dm
     createdBy: integer('created_by').references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    channelsTypeIdx: index('channels_type_idx').on(table.type),
+    channelsCreatedByIdx: index('channels_created_by_idx').on(table.createdBy),
+}));
 
 // ══════════════════════════════════════
 // Channel Members Table (many-to-many)
@@ -37,7 +43,11 @@ export const channelMembers = pgTable('channel_members', {
     role: varchar('role', { length: 10 }).default('member').notNull(), // admin, member
     lastReadMessageId: integer('last_read_message_id'),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    channelMembersChannelIdx: index('channel_members_channel_idx').on(table.channelId),
+    channelMembersUserIdx: index('channel_members_user_idx').on(table.userId),
+    channelMembersChannelUserIdx: index('channel_members_channel_user_idx').on(table.channelId, table.userId),
+}));
 
 // ══════════════════════════════════════
 // Channel Invites Table
@@ -52,7 +62,11 @@ export const channelInvites = pgTable('channel_invites', {
     expiresAt: timestamp('expires_at'), // null = never expires
     isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    channelInvitesChannelIdx: index('channel_invites_channel_idx').on(table.channelId),
+    channelInvitesCodeIdx: index('channel_invites_code_idx').on(table.code),
+    channelInvitesExpiresIdx: index('channel_invites_expires_idx').on(table.expiresAt),
+}));
 
 // ══════════════════════════════════════
 // Messages Table
@@ -65,7 +79,11 @@ export const messages = pgTable('messages', {
     type: varchar('type', { length: 10 }).default('user').notNull(), // user, bot, system
     imageUrl: text('image_url'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    messagesChannelIdx: index('messages_channel_idx').on(table.channelId),
+    messagesSenderIdx: index('messages_sender_idx').on(table.senderId),
+    messagesChannelCreatedIdx: index('messages_channel_created_idx').on(table.channelId, table.createdAt),
+}));
 
 // ══════════════════════════════════════
 // Relations

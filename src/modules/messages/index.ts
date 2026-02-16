@@ -75,13 +75,28 @@ export const messageRoutes = new Elysia({ prefix: '/channels', tags: ['Messages'
             const user = (ctx as any).user as AuthUser;
             const channelId = Number(params.id);
 
+            // Validate message content
+            const content = body.content;
+            if (!content || typeof content !== 'string') {
+                return { error: 'Message content is required' };
+            }
+
+            const trimmedContent = content.trim();
+            if (trimmedContent.length === 0) {
+                return { error: 'Message cannot be empty' };
+            }
+
+            if (trimmedContent.length > 4000) {
+                return { error: 'Message too long (max 4000 characters)' };
+            }
+
             // Save message to database
             const [newMessage] = await db
                 .insert(messages)
                 .values({
                     channelId,
                     senderId: user.id,
-                    content: body.content,
+                    content: trimmedContent,
                     type: body.type || 'user',
                 })
                 .returning();

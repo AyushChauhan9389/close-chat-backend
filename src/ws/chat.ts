@@ -2,8 +2,8 @@ import { Elysia, t } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
 import { config } from '../config/env';
 import { db } from '../config/db';
-import { messages, users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { messages, users, channelMembers } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
 
 // ══════════════════════════════════════
 // WebSocket Chat Handler
@@ -127,13 +127,30 @@ export const chatWebSocket = new Elysia({ name: 'chat-websocket' })
                     case 'message': {
                         const { channelId, content } = message;
 
+                        // Validate message content
+                        if (!content || typeof content !== 'string') {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Message content is required' }));
+                            break;
+                        }
+
+                        const trimmedContent = content.trim();
+                        if (trimmedContent.length === 0) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Message cannot be empty' }));
+                            break;
+                        }
+
+                        if (trimmedContent.length > 4000) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Message too long (max 4000 characters)' }));
+                            break;
+                        }
+
                         // Save message to database
                         const [newMessage] = await db
                             .insert(messages)
                             .values({
                                 channelId,
                                 senderId: userId,
-                                content,
+                                content: trimmedContent,
                                 type: 'user',
                             })
                             .returning();
@@ -203,6 +220,21 @@ export const chatWebSocket = new Elysia({ name: 'chat-websocket' })
                                 })
                             );
                         }
+                        break;
+                    }
+
+                    case 'mark-read': {
+                        const { channelId, messageId } = message;
+
+                        await db
+                            .update(channelMembers)
+                            .set({ lastReadMessageId: messageId })
+                            .where(
+                                and(
+                                    eq(channelMembers.channelId, channelId),
+                                    eq(channelMembers.userId, userId)
+                                )
+                            );
                         break;
                     }
 

@@ -2,6 +2,7 @@ import { config } from './config/env';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
+import { rateLimit } from 'elysia-rate-limit';
 
 import { authRoutes } from './modules/auth';
 import { userRoutes } from './modules/users';
@@ -18,6 +19,13 @@ const app = new Elysia()
     origin: true,
     credentials: true,
   }))
+  .use(
+    rateLimit({
+      max: 100,
+      duration: 60000,
+      warningDuration: 0,
+    })
+  )
   .use(openapi())
   .use(
     swagger({
